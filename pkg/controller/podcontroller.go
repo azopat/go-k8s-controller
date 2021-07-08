@@ -14,11 +14,7 @@ import (
 )
 
 var (
-	deletedPods         = make(map[string]string)
-	toUnBurstCheckCount = 0
-	toBurstCheckCount   = 0
-	applyPodCount       = 0
-	burstCount          = 0
+	deletedPods = make(map[string]string)
 )
 
 type Controller struct {
@@ -102,35 +98,15 @@ func (c *Controller) Run() {
 
 func (c *Controller) createInitialPods() {
 
-	applyPodCount = c.RebuildSettings.PodCount
-
 	for {
-		runningPodCount := c.podCount("status.phase=Running", "manager=podcontroller")
-		pendingPodsCount := c.podCount("status.phase=Pending", "manager=podcontroller")
-		totalCount := runningPodCount + pendingPodsCount
-		c.Logger.Info("Running pods count ", zap.Int("count", runningPodCount))
-		c.Logger.Info("Pending pods count ", zap.Int("count", pendingPodsCount))
 
-		// We increase the amount of pods if we have too many pending pods
-		if pendingPodsCount > runningPodCount {
-			toBurstCheckCount++
-			if toBurstCheckCount == 3 {
-				toBurstCheckCount = 0
-				applyPodCount = applyPodCount + 5
-				burstCount++
-			}
-		} else {
-			toBurstCheckCount = 0
-			if burstCount > 0 {
-				burstCount--
-				applyPodCount = applyPodCount - 5
-			}
-		}
+		count := c.podCount("status.phase=Running", "manager=podcontroller")
+		count += c.podCount("status.phase=Pending", "manager=podcontroller")
+		c.Logger.Info("Running pods count ", zap.Int("count", count))
 
-		if applyPodCount < 110 && applyPodCount > totalCount {
-			for i := 0; i < applyPodCount-totalCount; i++ {
-				c.CreatePod()
-			}
+		for i := 0; i < c.RebuildSettings.PodCount-count; i++ {
+			c.CreatePod()
+
 		}
 
 		time.Sleep(60 * time.Second)
