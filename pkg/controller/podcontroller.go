@@ -129,6 +129,10 @@ func (c *Controller) createInitialPods() {
 
 func (c *Controller) handleSchedAdd(newObj interface{}) {
 	c.Logger.Sugar().Warnf("handleSchedAdd is : %v", newObj)
+	pod := newObj.(*v1.Pod)
+
+	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
+
 	/*pod, ok := newObj.(*v1.Pod)
 	if !ok {
 		c.Logger.Info("failed to cast object")
@@ -148,9 +152,9 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 
 	c.Logger.Sugar().Infof("New pod is : %v", newObj)
 
-	podold := newObj.(*v1.Pod)
+	podold := oldObj.(*v1.Pod)
 
-	pod := oldObj.(*v1.Pod)
+	pod := newObj.(*v1.Pod)
 	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
 	c.Logger.Sugar().Infof("old pod status : %v", podold.Status.Phase)
 
