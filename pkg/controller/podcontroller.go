@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	"go.uber.org/zap"
@@ -128,7 +129,8 @@ func (c *Controller) createInitialPods() {
 }
 
 func (c *Controller) handleSchedAdd(newObj interface{}) {
-	pod, ok := newObj.(*v1.Pod)
+	c.Logger.Sugar().Warnf("handleSchedAdd is : %v", newObj)
+	/*pod, ok := newObj.(*v1.Pod)
 	if !ok {
 		c.Logger.Info("failed to cast object")
 		return
@@ -139,14 +141,22 @@ func (c *Controller) handleSchedAdd(newObj interface{}) {
 		c.Logger.Sugar().Warnf("New pod is : %v", newObj)
 		c.CreatePod()
 
-	}
+	}*/
 }
 func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	c.Logger.Info("update event We have a pod")
 	c.Logger.Sugar().Infof("New old is : %v", oldObj)
 
 	c.Logger.Sugar().Infof("New pod is : %v", newObj)
-	/*pod := newObj.(*v1.Pod)
+	if !reflect.DeepEqual(oldObj, newObj) {
+		c.Logger.Info("reflect not")
+	}
+	pod := oldObj.(*v1.Pod)
+	c.Logger.Sugar().Infof("pod status : %v", pod.Status.Phase)
+	c.Logger.Sugar().Infof("pod met : %v", pod.GetObjectMeta)
+	c.Logger.Sugar().Infof("pod lables : %v", pod.Labels)
+	c.Logger.Sugar().Infof("pod fields : %v", pod.ManagedFields)
+
 	if c.okToRecreate(pod) {
 		c.Logger.Info("We have a pod")
 		c.Logger.Sugar().Warnf("New pod is : %v", newObj)
@@ -159,7 +169,7 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 			c.CreatePod()
 		}
 
-	}*/
+	}
 }
 
 func (c *Controller) okToRecreate(pod *v1.Pod) bool {
