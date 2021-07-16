@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"reflect"
 	"time"
 
 	"go.uber.org/zap"
@@ -148,14 +147,12 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	c.Logger.Sugar().Infof("New old is : %v", oldObj)
 
 	c.Logger.Sugar().Infof("New pod is : %v", newObj)
-	if !reflect.DeepEqual(oldObj, newObj) {
-		c.Logger.Info("reflect not")
-	}
+
+	podold := newObj.(*v1.Pod)
+
 	pod := oldObj.(*v1.Pod)
-	c.Logger.Sugar().Infof("pod status : %v", pod.Status.Phase)
-	c.Logger.Sugar().Infof("pod met : %v", pod.GetObjectMeta)
-	c.Logger.Sugar().Infof("pod lables : %v", pod.Labels)
-	c.Logger.Sugar().Infof("pod fields : %v", pod.ManagedFields)
+	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
+	c.Logger.Sugar().Infof("old pod status : %v", podold.Status.Phase)
 
 	if c.okToRecreate(pod) {
 		c.Logger.Info("We have a pod")
