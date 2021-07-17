@@ -121,16 +121,22 @@ func (c *Controller) createInitialPods() {
 			// Calculate the age of the pod
 			podCreationTime := pod.GetCreationTimestamp()
 			age := time.Since(podCreationTime.Time).Round(time.Second)
-
+			Duration, _ := time.ParseDuration(age.String())
 			// Get the status of each of the pods
-
 			podStatus := pod.Status
 			name := pod.GetName()
 			ageS := age.String()
 			c.Logger.Sugar().Infof(" pod name : %v", name)
 			c.Logger.Sugar().Infof(" pod status : %v", pod.Status.Phase)
 			c.Logger.Sugar().Infof(" pod age : %v", ageS)
-			if podStatus.Phase == "Running" || podStatus.Phase == "Pending" {
+
+			if podStatus.Phase == "Running" || podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
+				if Duration > time.Duration(120)*time.Second {
+					c.Logger.Sugar().Infof(" Duration delete: %v", Duration)
+					if podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
+						c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+					}
+				}
 				continue
 			} else {
 				c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
@@ -147,7 +153,7 @@ func (c *Controller) createInitialPods() {
 			c.CreatePod()
 
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(3 * time.Second)
 
 	}
 
