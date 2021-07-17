@@ -13,10 +13,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var (
-	deletedPods = make(map[string]string)
-)
-
 type Controller struct {
 	PodNamespace    string
 	Client          *kubernetes.Clientset
@@ -109,8 +105,39 @@ func podLastTransitionTime(podObj *v1.Pod) time.Time {
 	return time.Time{}
 }*/
 func (c *Controller) createInitialPods() {
-
 	for {
+		// Create a pod interface for the given namespace
+
+		podInterface := c.Client.CoreV1().Pods(c.PodNamespace)
+
+		// List the pods in the given namespace
+		podList, err := podInterface.List(c.CTX, metav1.ListOptions{})
+
+		if err != nil {
+			c.Logger.Sugar().Warnf("Initia Running error :  %v", err)
+
+		}
+		for _, pod := range podList.Items {
+			// Calculate the age of the pod
+			podCreationTime := pod.GetCreationTimestamp()
+			age := time.Since(podCreationTime.Time).Round(time.Second)
+
+			// Get the status of each of the pods
+
+			podStatus := pod.Status
+			name := pod.GetName()
+			ageS := age.String()
+			c.Logger.Sugar().Infof(" pod name : %v", name)
+			c.Logger.Sugar().Infof(" pod status : %v", pod.Status.Phase)
+			c.Logger.Sugar().Infof(" pod age : %v", ageS)
+			if podStatus.Phase == "Running" || podStatus.Phase == "Pending" {
+				continue
+			} else {
+				c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+
+			}
+
+		}
 
 		count := c.podCount("status.phase=Running", "manager=podcontroller")
 		count += c.podCount("status.phase=Pending", "manager=podcontroller")
@@ -121,7 +148,7 @@ func (c *Controller) createInitialPods() {
 			c.CreatePod()
 
 		}
-		time.Sleep(30 * time.Second)
+		time.Sleep(10 * time.Second)
 
 	}
 
@@ -148,29 +175,17 @@ func (c *Controller) handleSchedAdd(newObj interface{}) {
 }
 func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	c.Logger.Info("update event We have a pod")
-	c.Logger.Sugar().Infof("New old is : %v", oldObj)
-
-	c.Logger.Sugar().Infof("New pod is : %v", newObj)
 
 	podold := oldObj.(*v1.Pod)
 
 	pod := newObj.(*v1.Pod)
+	if pod.Status.Phase == "Running" || pod.Status.Phase == "Pending" {
+		return
+	}
 	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
 	c.Logger.Sugar().Infof("old pod status : %v", podold.Status.Phase)
 
-	if c.okToRecreate(pod) {
-		c.Logger.Info("We have a pod")
-		c.Logger.Sugar().Warnf("New pod is : %v", newObj)
-
-		// we do this just in order to run the pod creation/deletion only once. becauase sometimes we receive same event 2 times for a pod. Needs to investigate why
-		_, exist := deletedPods[pod.ObjectMeta.Name]
-		if !exist {
-			deletedPods[pod.ObjectMeta.Name] = "yes"
-			go c.deletePod(pod)
-			c.CreatePod()
-		}
-
-	}
+	go c.deletePod(pod)
 }
 
 func (c *Controller) okToRecreate(pod *v1.Pod) bool {
