@@ -111,7 +111,7 @@ func (c *Controller) createInitialPods() {
 		podInterface := c.Client.CoreV1().Pods(c.PodNamespace)
 
 		// List the pods in the given namespace
-		podList, err := podInterface.List(c.CTX, metav1.ListOptions{})
+		podList, err := podInterface.List(c.CTX, metav1.ListOptions{LabelSelector: "manager=podcontroller"})
 
 		if err != nil {
 			c.Logger.Sugar().Warnf("Initia Running error :  %v", err)
@@ -143,7 +143,6 @@ func (c *Controller) createInitialPods() {
 		count += c.podCount("status.phase=Pending", "manager=podcontroller")
 		c.Logger.Info("Initia Running pods count ", zap.Int("count", count))
 		c.Logger.Info("Initia Pending pods count ", zap.Int("count", count))
-
 		for i := 0; i < c.RebuildSettings.PodCount-count; i++ {
 			c.CreatePod()
 
