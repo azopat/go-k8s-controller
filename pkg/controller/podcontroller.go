@@ -124,11 +124,6 @@ func (c *Controller) createInitialPods() {
 			Duration, _ := time.ParseDuration(age.String())
 			// Get the status of each of the pods
 			podStatus := pod.Status
-			name := pod.GetName()
-			ageS := age.String()
-			c.Logger.Sugar().Infof(" pod name : %v", name)
-			c.Logger.Sugar().Infof(" pod status : %v", pod.Status.Phase)
-			c.Logger.Sugar().Infof(" pod age : %v", ageS)
 
 			if podStatus.Phase == "Running" || podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
 				if Duration > time.Duration(120)*time.Second {
@@ -139,6 +134,7 @@ func (c *Controller) createInitialPods() {
 				}
 				continue
 			} else {
+
 				c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
 
 			}
@@ -147,20 +143,18 @@ func (c *Controller) createInitialPods() {
 
 		count := c.podCount("status.phase=Running", "manager=podcontroller")
 		count += c.podCount("status.phase=Pending", "manager=podcontroller")
-		c.Logger.Info("Initia Running pods count ", zap.Int("count", count))
-		c.Logger.Info("Initia Pending pods count ", zap.Int("count", count))
 		for i := 0; i < c.RebuildSettings.PodCount-count; i++ {
 			c.CreatePod()
 
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(10 * time.Second)
 
 	}
 
 }
 
 func (c *Controller) handleSchedAdd(newObj interface{}) {
-	c.Logger.Sugar().Warnf("handleSchedAdd is : %v", newObj)
+	c.Logger.Sugar().Infof("handleSchedAdd is : %v", newObj)
 	pod := newObj.(*v1.Pod)
 
 	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
@@ -184,13 +178,26 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	podold := oldObj.(*v1.Pod)
 
 	pod := newObj.(*v1.Pod)
+
 	if pod.Status.Phase == "Running" || pod.Status.Phase == "Pending" {
 		return
 	}
 	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
 	c.Logger.Sugar().Infof("old pod status : %v", podold.Status.Phase)
+	if (pod.ObjectMeta.Labels["manager"] == "podcontroller") && c.isPodUnhealthy(pod) {
+		go c.deletePod(pod)
+	}
+	if (podold.ObjectMeta.Labels["manager"] == "podcontroller") && c.isPodUnhealthy(podold) {
+		go c.deletePod(podold)
+	}
 
-	go c.deletePod(pod)
+	if c.okToRecreate(pod) {
+		go c.deletePod(pod)
+	}
+	if c.okToRecreate(podold) {
+		go c.deletePod(podold)
+	}
+
 }
 
 func (c *Controller) okToRecreate(pod *v1.Pod) bool {
@@ -212,12 +219,13 @@ func (c *Controller) isPodUnhealthy(pod *v1.Pod) bool {
 	return false
 }
 func (c *Controller) handleSchedDelete(obj interface{}) {
-	c.Logger.Sugar().Warnf("delete pod is : %v", obj)
+	pod := obj.(*v1.Pod)
+	c.Logger.Sugar().Warnf("delete pod name is : %v", pod.Name)
+	c.Logger.Sugar().Infof("delete pod status : %v", pod.Status.Phase)
 
 }
 
 func (c *Controller) deletePod(pod *v1.Pod) error {
-	time.Sleep(30 * time.Second)
 	c.Logger.Info("Deleting pod", zap.String("podName", pod.ObjectMeta.Name))
 	return c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
 }
