@@ -159,18 +159,6 @@ func (c *Controller) handleSchedAdd(newObj interface{}) {
 
 	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
 
-	/*pod, ok := newObj.(*v1.Pod)
-	if !ok {
-		c.Logger.Info("failed to cast object")
-		return
-	}
-
-	if c.okToRecreate(pod) {
-		c.Logger.Info("We have a pod")
-		c.Logger.Sugar().Warnf("New pod is : %v", newObj)
-		c.CreatePod()
-
-	}*/
 }
 func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	c.Logger.Info("update event We have a pod")
