@@ -147,7 +147,7 @@ func (c *Controller) createInitialPods() {
 			c.CreatePod()
 
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 
 	}
 
