@@ -214,6 +214,13 @@ func (c *Controller) handleSchedDelete(obj interface{}) {
 }
 
 func (c *Controller) deletePod(pod *v1.Pod) error {
-	c.Logger.Info("Deleting pod", zap.String("podName", pod.ObjectMeta.Name))
-	return c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+	if pod.ObjectMeta.Labels["manager"] == "podcontroller" {
+		c.Logger.Info("Deleting pod", zap.String("podName", pod.ObjectMeta.Name))
+		return c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+
+	} else {
+		c.Logger.Sugar().Warnf("can not delete pod name is : %v its not bleong to podcontroller", pod.Name)
+		return nil
+	}
+
 }
