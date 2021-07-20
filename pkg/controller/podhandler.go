@@ -116,6 +116,8 @@ func (c *Controller) GetPodObject() *core.Pod {
 						{Name: "JAEGER_AGENT_HOST", Value: c.RebuildSettings.JaegerHost},
 						{Name: "JAEGER_AGENT_PORT", Value: c.RebuildSettings.JaegerPort},
 						{Name: "JAEGER_AGENT_ON", Value: c.RebuildSettings.JaegerOn},
+						{Name: "MESSAGE_BROKER_USER", Value: c.RebuildSettings.MessageBrokerUser},
+						{Name: "MESSAGE_BROKER_PASSWORD", Value: c.RebuildSettings.MessageBrokerPassword},
 					},
 					/*
 						VolumeMounts: []core.VolumeMount{

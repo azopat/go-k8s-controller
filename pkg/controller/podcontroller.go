@@ -49,6 +49,8 @@ type RebuildSettings struct {
 	ProcessPodCpuLimit      string
 	ProcessPodMemoryRequest string
 	ProcessPodMemoryLimit   string
+	MessageBrokerUser       string
+	MessageBrokerPassword   string
 }
 
 func NewPodController(logger *zap.Logger, podNamespace string, rs *RebuildSettings) (*Controller, error) {

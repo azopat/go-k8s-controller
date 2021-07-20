@@ -28,6 +28,8 @@ func main() {
 	minioPassword := os.Getenv("MINIO_PASSWORD")
 	processImage := os.Getenv("PROCESS_IMAGE")
 	minioEndpoint := os.Getenv("MINIO_ENDPOINT")
+	messageBrokerUser := os.Getenv("MESSAGE_BROKER_USER")
+	messageBrokerPassword := os.Getenv("MESSAGE_BROKER_PASSWORD")
 	podCount, err := strconv.Atoi(podCountStr)
 
 	processPodCpuRequest := os.Getenv("PROCESS_POD_CPU_REQUEST")
@@ -70,6 +72,8 @@ func main() {
 		ProcessPodCpuLimit:      processPodCpuLimit,
 		ProcessPodMemoryRequest: processPodMemoryRequest,
 		ProcessPodMemoryLimit:   processPodMemoryLimit,
+		MessageBrokerUser:       messageBrokerUser,
+		MessageBrokerPassword:   messageBrokerPassword,
 	}
 
 	ctrl, err := podcontroller.NewPodController(logger, podNamespace, rs)
