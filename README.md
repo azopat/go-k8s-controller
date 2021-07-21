@@ -44,7 +44,8 @@ These environment variables are needed by the service
 - JAEGER_AGENT_HOST : Jaeger host
 - JAEGER_AGENT_PORT : Jaeger  port
 - JAEGER_AGENT_ON : If the agent is enabled or disabled
-
+- MESSAGE_BROKER_USER : Message bbroker instance(rabbitmq) username
+- MESSAGE_BROKER_PASSWORD : Message bbroker instance(rabbitmq) password
 
 ### Docker build
 - To build the docker image
