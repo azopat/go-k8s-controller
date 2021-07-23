@@ -107,49 +107,57 @@ func podLastTransitionTime(podObj *v1.Pod) time.Time {
 	return time.Time{}
 }*/
 func (c *Controller) createInitialPods() {
+	nestedloop := 0
+	sleepnum := 2 // Second
 	for {
-		// Create a pod interface for the given namespace
-
-		podInterface := c.Client.CoreV1().Pods(c.PodNamespace)
-
-		// List the pods in the given namespace
-		podList, err := podInterface.List(c.CTX, metav1.ListOptions{LabelSelector: "manager=podcontroller"})
-
-		if err != nil {
-			c.Logger.Sugar().Warnf("Initia Running error :  %v", err)
-
-		}
-		for _, pod := range podList.Items {
-			// Calculate the age of the pod
-			podCreationTime := pod.GetCreationTimestamp()
-			age := time.Since(podCreationTime.Time).Round(time.Second)
-			Duration, _ := time.ParseDuration(age.String())
-			// Get the status of each of the pods
-			podStatus := pod.Status
-
-			if podStatus.Phase == "Running" || podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
-				if Duration > time.Duration(120)*time.Second {
-					c.Logger.Sugar().Infof(" Duration delete: %v", Duration)
-					if podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
-						c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
-					}
-				}
-				continue
-			} else {
-
-				c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
-
-			}
-
-		}
-
 		count := c.podCount("status.phase=Running", "manager=podcontroller")
 		count += c.podCount("status.phase=Pending", "manager=podcontroller")
 		for i := 0; i < c.RebuildSettings.PodCount-count; i++ {
 			c.CreatePod()
 
 		}
-		time.Sleep(5 * time.Second)
+
+		if nestedloop > 60 {
+			nestedloop = 0
+			// Create a pod interface for the given namespace
+
+			podInterface := c.Client.CoreV1().Pods(c.PodNamespace)
+
+			// List the pods in the given namespace
+			podList, err := podInterface.List(c.CTX, metav1.ListOptions{LabelSelector: "manager=podcontroller"})
+
+			if err != nil {
+				c.Logger.Sugar().Warnf("Initia Running error :  %v", err)
+
+			}
+			for _, pod := range podList.Items {
+				// Calculate the age of the pod
+				podCreationTime := pod.GetCreationTimestamp()
+				age := time.Since(podCreationTime.Time).Round(time.Second)
+				Duration, _ := time.ParseDuration(age.String())
+				// Get the status of each of the pods
+				podStatus := pod.Status
+
+				if podStatus.Phase == "Running" || podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
+					if Duration > time.Duration(180)*time.Second {
+
+						if podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
+							c.Logger.Sugar().Infof(" Duration delete: %v", Duration)
+							c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+						}
+					}
+					continue
+				} else {
+
+					c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+
+				}
+
+			}
+		}
+
+		time.Sleep(time.Duration(sleepnum) * time.Second)
+		nestedloop = nestedloop + sleepnum
 
 	}
 
