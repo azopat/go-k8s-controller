@@ -99,15 +99,6 @@ func (c *Controller) Run() {
 	<-c.CTX.Done()
 }
 
-/*
-func podLastTransitionTime(podObj *v1.Pod) time.Time {
-	for _, pc := range podObj.Status.Conditions {
-		if pc.Type == v1.PodScheduled && pc.Status == v1.ConditionFalse {
-			return pc.LastTransitionTime.Time
-		}
-	}
-	return time.Time{}
-}*/
 func (c *Controller) createInitialPods() {
 	nestedloop := 0
 	sleepnum := 2 // Second
@@ -122,7 +113,6 @@ func (c *Controller) createInitialPods() {
 		}
 		c.CalcCount = count
 
-		c.Logger.Sugar().Infof("createInitialPods count: %v", count)
 		c.CreateNew = true
 
 		if nestedloop > 60 {
@@ -182,9 +172,6 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	podold := oldObj.(*v1.Pod)
 
 	pod := newObj.(*v1.Pod)
-	c.Logger.Sugar().Infof("recreatePod new pod status : %v", pod.Status.Phase)
-	c.Logger.Sugar().Infof("recreatePod old pod status : %v", podold.Status.Phase)
-	c.Logger.Sugar().Infof("CalcCount count: %v", c.CalcCount)
 
 	if pod.Status.Phase == "Running" || pod.Status.Phase == "Pending" {
 		return
@@ -192,8 +179,6 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 
 	if c.CreateNew {
 		if c.CalcCount < c.RebuildSettings.PodCount {
-			c.Logger.Sugar().Infof("CalcCount creat pods count: %v", c.CalcCount)
-
 			c.CreatePod()
 		}
 	}
