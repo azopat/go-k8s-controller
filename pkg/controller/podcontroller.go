@@ -22,6 +22,7 @@ type Controller struct {
 	RebuildSettings *RebuildSettings
 	CTX             context.Context
 	CreateNew       bool
+	CalcCount       int
 }
 
 type PodFilter struct {
@@ -110,6 +111,7 @@ func podLastTransitionTime(podObj *v1.Pod) time.Time {
 func (c *Controller) createInitialPods() {
 	nestedloop := 0
 	sleepnum := 2 // Second
+	c.CalcCount = c.RebuildSettings.PodCount
 	for {
 		c.CreateNew = false
 		count := c.podCount("status.phase=Running", "manager=podcontroller")
@@ -118,9 +120,10 @@ func (c *Controller) createInitialPods() {
 			c.CreatePod()
 
 		}
-		if count < c.RebuildSettings.PodCount {
-			c.CreateNew = true
-		}
+		c.CalcCount = c.RebuildSettings.PodCount
+
+		c.Logger.Sugar().Infof("createInitialPods count: %v", count)
+		c.CreateNew = true
 
 		if nestedloop > 60 {
 			nestedloop = 0
@@ -183,8 +186,15 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	if pod.Status.Phase == "Running" || pod.Status.Phase == "Pending" {
 		return
 	}
+	if pod.Status.Phase == "Succeeded" {
+		c.CalcCount = c.CalcCount - 1
+	}
 	if c.CreateNew {
-		c.CreatePod()
+		if c.CalcCount < c.RebuildSettings.PodCount {
+			c.Logger.Sugar().Infof("CalcCount creat pods count: %v", c.CalcCount)
+
+			c.CreatePod()
+		}
 	}
 	if (pod.ObjectMeta.Labels["manager"] == "podcontroller") && c.isPodUnhealthy(pod) {
 		go c.deletePod(pod)
