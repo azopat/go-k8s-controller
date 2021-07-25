@@ -120,7 +120,7 @@ func (c *Controller) createInitialPods() {
 			c.CreatePod()
 
 		}
-		c.CalcCount = c.RebuildSettings.PodCount
+		c.CalcCount = count
 
 		c.Logger.Sugar().Infof("createInitialPods count: %v", count)
 		c.CreateNew = true
@@ -182,13 +182,14 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	podold := oldObj.(*v1.Pod)
 
 	pod := newObj.(*v1.Pod)
+	c.Logger.Sugar().Infof("recreatePod new pod status : %v", pod.Status.Phase)
+	c.Logger.Sugar().Infof("recreatePod old pod status : %v", podold.Status.Phase)
+	c.Logger.Sugar().Infof("CalcCount count: %v", c.CalcCount)
 
 	if pod.Status.Phase == "Running" || pod.Status.Phase == "Pending" {
 		return
 	}
-	if pod.Status.Phase == "Succeeded" {
-		c.CalcCount = c.CalcCount - 1
-	}
+
 	if c.CreateNew {
 		if c.CalcCount < c.RebuildSettings.PodCount {
 			c.Logger.Sugar().Infof("CalcCount creat pods count: %v", c.CalcCount)
@@ -198,16 +199,23 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	}
 	if (pod.ObjectMeta.Labels["manager"] == "podcontroller") && c.isPodUnhealthy(pod) {
 		go c.deletePod(pod)
+		return
 	}
 	if (podold.ObjectMeta.Labels["manager"] == "podcontroller") && c.isPodUnhealthy(podold) {
 		go c.deletePod(podold)
+		return
 	}
 
 	if c.okToRecreate(pod) {
 		go c.deletePod(pod)
+		if c.CreateNew {
+			c.CalcCount = c.CalcCount - 1
+		}
+		return
 	}
 	if c.okToRecreate(podold) {
 		go c.deletePod(podold)
+		return
 	}
 
 }
