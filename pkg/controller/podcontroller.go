@@ -21,6 +21,7 @@ type Controller struct {
 	Logger          *zap.Logger
 	RebuildSettings *RebuildSettings
 	CTX             context.Context
+	CreateNew       bool
 }
 
 type PodFilter struct {
@@ -110,11 +111,15 @@ func (c *Controller) createInitialPods() {
 	nestedloop := 0
 	sleepnum := 2 // Second
 	for {
+		c.CreateNew = false
 		count := c.podCount("status.phase=Running", "manager=podcontroller")
 		count += c.podCount("status.phase=Pending", "manager=podcontroller")
 		for i := 0; i < c.RebuildSettings.PodCount-count; i++ {
 			c.CreatePod()
 
+		}
+		if count < c.RebuildSettings.PodCount {
+			c.CreateNew = true
 		}
 
 		if nestedloop > 60 {
@@ -171,8 +176,6 @@ func (c *Controller) handleSchedAdd(newObj interface{}) {
 
 }
 func (c *Controller) recreatePod(oldObj, newObj interface{}) {
-	c.Logger.Info("update event We have a pod")
-
 	podold := oldObj.(*v1.Pod)
 
 	pod := newObj.(*v1.Pod)
@@ -180,8 +183,9 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	if pod.Status.Phase == "Running" || pod.Status.Phase == "Pending" {
 		return
 	}
-	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
-	c.Logger.Sugar().Infof("old pod status : %v", podold.Status.Phase)
+	if c.CreateNew {
+		c.CreatePod()
+	}
 	if (pod.ObjectMeta.Labels["manager"] == "podcontroller") && c.isPodUnhealthy(pod) {
 		go c.deletePod(pod)
 	}
