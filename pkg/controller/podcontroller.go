@@ -21,6 +21,8 @@ type Controller struct {
 	Logger          *zap.Logger
 	RebuildSettings *RebuildSettings
 	CTX             context.Context
+	CreateNew       bool
+	CalcCount       int
 }
 
 type PodFilter struct {
@@ -97,59 +99,63 @@ func (c *Controller) Run() {
 	<-c.CTX.Done()
 }
 
-/*
-func podLastTransitionTime(podObj *v1.Pod) time.Time {
-	for _, pc := range podObj.Status.Conditions {
-		if pc.Type == v1.PodScheduled && pc.Status == v1.ConditionFalse {
-			return pc.LastTransitionTime.Time
-		}
-	}
-	return time.Time{}
-}*/
 func (c *Controller) createInitialPods() {
+	nestedloop := 0
+	sleepnum := 2 // Second
+	c.CalcCount = c.RebuildSettings.PodCount
 	for {
-		// Create a pod interface for the given namespace
-
-		podInterface := c.Client.CoreV1().Pods(c.PodNamespace)
-
-		// List the pods in the given namespace
-		podList, err := podInterface.List(c.CTX, metav1.ListOptions{LabelSelector: "manager=podcontroller"})
-
-		if err != nil {
-			c.Logger.Sugar().Warnf("Initia Running error :  %v", err)
-
-		}
-		for _, pod := range podList.Items {
-			// Calculate the age of the pod
-			podCreationTime := pod.GetCreationTimestamp()
-			age := time.Since(podCreationTime.Time).Round(time.Second)
-			Duration, _ := time.ParseDuration(age.String())
-			// Get the status of each of the pods
-			podStatus := pod.Status
-
-			if podStatus.Phase == "Running" || podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
-				if Duration > time.Duration(120)*time.Second {
-					c.Logger.Sugar().Infof(" Duration delete: %v", Duration)
-					if podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
-						c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
-					}
-				}
-				continue
-			} else {
-
-				c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
-
-			}
-
-		}
-
+		c.CreateNew = false
 		count := c.podCount("status.phase=Running", "manager=podcontroller")
 		count += c.podCount("status.phase=Pending", "manager=podcontroller")
 		for i := 0; i < c.RebuildSettings.PodCount-count; i++ {
 			c.CreatePod()
 
 		}
-		time.Sleep(5 * time.Second)
+		c.CalcCount = count
+
+		c.CreateNew = true
+
+		if nestedloop > 60 {
+			nestedloop = 0
+			// Create a pod interface for the given namespace
+
+			podInterface := c.Client.CoreV1().Pods(c.PodNamespace)
+
+			// List the pods in the given namespace
+			podList, err := podInterface.List(c.CTX, metav1.ListOptions{LabelSelector: "manager=podcontroller"})
+
+			if err != nil {
+				c.Logger.Sugar().Warnf("Initia Running error :  %v", err)
+
+			}
+			for _, pod := range podList.Items {
+				// Calculate the age of the pod
+				podCreationTime := pod.GetCreationTimestamp()
+				age := time.Since(podCreationTime.Time).Round(time.Second)
+				Duration, _ := time.ParseDuration(age.String())
+				// Get the status of each of the pods
+				podStatus := pod.Status
+
+				if podStatus.Phase == "Running" || podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
+					if Duration > time.Duration(180)*time.Second {
+
+						if podStatus.Phase == "Pending" || podStatus.Phase == "ContainerCreating" {
+							c.Logger.Sugar().Infof(" Duration delete: %v", Duration)
+							c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+						}
+					}
+					continue
+				} else {
+
+					c.Client.CoreV1().Pods(pod.ObjectMeta.Namespace).Delete(c.CTX, pod.ObjectMeta.Name, metav1.DeleteOptions{})
+
+				}
+
+			}
+		}
+
+		time.Sleep(time.Duration(sleepnum) * time.Second)
+		nestedloop = nestedloop + sleepnum
 
 	}
 
@@ -163,8 +169,6 @@ func (c *Controller) handleSchedAdd(newObj interface{}) {
 
 }
 func (c *Controller) recreatePod(oldObj, newObj interface{}) {
-	c.Logger.Info("update event We have a pod")
-
 	podold := oldObj.(*v1.Pod)
 
 	pod := newObj.(*v1.Pod)
@@ -172,20 +176,31 @@ func (c *Controller) recreatePod(oldObj, newObj interface{}) {
 	if pod.Status.Phase == "Running" || pod.Status.Phase == "Pending" {
 		return
 	}
-	c.Logger.Sugar().Infof("new pod status : %v", pod.Status.Phase)
-	c.Logger.Sugar().Infof("old pod status : %v", podold.Status.Phase)
+
+	if c.CreateNew {
+		if c.CalcCount < c.RebuildSettings.PodCount {
+			c.CreatePod()
+		}
+	}
 	if (pod.ObjectMeta.Labels["manager"] == "podcontroller") && c.isPodUnhealthy(pod) {
 		go c.deletePod(pod)
+		return
 	}
 	if (podold.ObjectMeta.Labels["manager"] == "podcontroller") && c.isPodUnhealthy(podold) {
 		go c.deletePod(podold)
+		return
 	}
 
 	if c.okToRecreate(pod) {
 		go c.deletePod(pod)
+		if c.CreateNew {
+			c.CalcCount = c.CalcCount - 1
+		}
+		return
 	}
 	if c.okToRecreate(podold) {
 		go c.deletePod(podold)
+		return
 	}
 
 }
