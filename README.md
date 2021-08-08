@@ -46,6 +46,7 @@ These environment variables are needed by the service
 - JAEGER_AGENT_ON : If the agent is enabled or disabled
 - MESSAGE_BROKER_USER : Message bbroker instance(rabbitmq) username
 - MESSAGE_BROKER_PASSWORD : Message bbroker instance(rabbitmq) password
+- PROCESS_POD_NAMESPACE : namespace where rebuild pods will be scheduled
 
 ### Docker build
 - To build the docker image
