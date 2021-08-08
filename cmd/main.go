@@ -21,7 +21,7 @@ func main() {
 	logger, err := loggerConfig.Build()
 	runtime.Must(err)
 
-	podNamespace := "icap-adaptation"
+	podNamespace := os.Getenv("PROCESS_POD_NAMESPACE")
 
 	podCountStr := os.Getenv("POD_COUNT")
 	minioUser := os.Getenv("MINIO_USER")
